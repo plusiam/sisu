@@ -5,9 +5,11 @@ export interface Teacher {
   id: string;                      // UUID
   name: string;                    // 이름
   type: 'homeroom' | 'specialist'; // 담임 | 전담
-  grade?: number;                  // 담당 학년 (1-6)
-  classNumber?: number;            // 반 번호
+  grade?: number;                  // 담당 학년 (담임용, 1-6)
+  grades?: number[];               // 담당 학년들 (전담용, 여러 학년 가능)
+  classNumber?: number;            // 반 번호 (담임용)
   subjects?: string[];             // 담당 교과 ["국어", "수학"]
+  customSubject?: string;          // 기타 교과 (직접 입력)
   createdAt: number;
   updatedAt: number;
 }

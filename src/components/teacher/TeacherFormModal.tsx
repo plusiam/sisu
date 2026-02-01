@@ -14,6 +14,7 @@ interface TeacherFormModalProps {
 }
 
 const SUBJECTS = ['국어', '수학', '사회', '과학', '영어', '체육', '음악', '미술', '실과', '도덕'];
+const GRADES = [1, 2, 3, 4, 5, 6];
 
 export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSubmit }: TeacherFormModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -23,8 +24,10 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
     name: '',
     type: 'homeroom' as 'homeroom' | 'specialist',
     grade: undefined as number | undefined,
+    grades: [] as number[],
     classNumber: undefined as number | undefined,
     subjects: [] as string[],
+    customSubject: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -35,16 +38,20 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
         name: teacher.name,
         type: teacher.type,
         grade: teacher.grade,
+        grades: teacher.grades || (teacher.grade ? [teacher.grade] : []),
         classNumber: teacher.classNumber,
         subjects: teacher.subjects || [],
+        customSubject: teacher.customSubject || '',
       });
     } else {
       setFormData({
         name: '',
         type: 'homeroom',
         grade: undefined,
+        grades: [],
         classNumber: undefined,
         subjects: [],
+        customSubject: '',
       });
     }
   }, [teacher, isOpen]);
@@ -106,12 +113,11 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
       newErrors.name = nameValidation.error!;
     }
 
-    const gradeValidation = validateGrade(formData.grade);
-    if (!gradeValidation.isValid) {
-      newErrors.grade = gradeValidation.error!;
-    }
-
     if (formData.type === 'homeroom') {
+      const gradeValidation = validateGrade(formData.grade);
+      if (!gradeValidation.isValid) {
+        newErrors.grade = gradeValidation.error!;
+      }
       const classValidation = validateClassNumber(formData.classNumber);
       if (!classValidation.isValid) {
         newErrors.classNumber = classValidation.error!;
@@ -126,10 +132,25 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
 
     // 검증 통과 - 제출
     setErrors({});
-    onSubmit({
-      ...formData,
-      name: formData.name.trim(), // 앞뒤 공백 제거
-    });
+
+    const submitData: Omit<Teacher, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: formData.name.trim(),
+      type: formData.type,
+    };
+
+    if (formData.type === 'homeroom') {
+      submitData.grade = formData.grade;
+      submitData.classNumber = formData.classNumber;
+    } else {
+      // 전담교사
+      submitData.grades = formData.grades;
+      submitData.subjects = formData.subjects;
+      if (formData.customSubject.trim()) {
+        submitData.customSubject = formData.customSubject.trim();
+      }
+    }
+
+    onSubmit(submitData);
     toast.success(mode === 'add' ? '교사가 추가되었습니다' : '교사 정보가 수정되었습니다');
     onClose();
   };
@@ -140,6 +161,22 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
       subjects: prev.subjects.includes(subject)
         ? prev.subjects.filter(s => s !== subject)
         : [...prev.subjects, subject]
+    }));
+  };
+
+  const toggleGrade = (grade: number) => {
+    setFormData(prev => ({
+      ...prev,
+      grades: prev.grades.includes(grade)
+        ? prev.grades.filter(g => g !== grade)
+        : [...prev.grades, grade].sort((a, b) => a - b)
+    }));
+  };
+
+  const selectAllGrades = () => {
+    setFormData(prev => ({
+      ...prev,
+      grades: prev.grades.length === GRADES.length ? [] : [...GRADES]
     }));
   };
 
@@ -158,7 +195,7 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="glass-card w-full max-w-md p-6"
+          className="glass-card w-full max-w-md max-h-[90vh] overflow-y-auto p-6"
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -225,7 +262,9 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
                       type: e.target.value as 'homeroom' | 'specialist',
-                      subjects: e.target.value === 'homeroom' ? [] : prev.subjects
+                      subjects: [],
+                      grades: [],
+                      customSubject: '',
                     }))}
                     className="w-4 h-4 text-indigo-600"
                   />
@@ -240,7 +279,7 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
                       ...prev,
                       type: e.target.value as 'homeroom' | 'specialist',
                       grade: undefined,
-                      classNumber: undefined
+                      classNumber: undefined,
                     }))}
                     className="w-4 h-4 text-indigo-600"
                   />
@@ -249,26 +288,28 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
               </div>
             </div>
 
-            {/* 담당 학년 */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                담당 학년
-              </label>
-              <select
-                value={formData.grade || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, grade: e.target.value ? Number(e.target.value) : undefined }))}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                         bg-white dark:bg-slate-800 text-slate-800 dark:text-white
-                         focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">선택 안 함</option>
-                {[1, 2, 3, 4, 5, 6].map(grade => (
-                  <option key={grade} value={grade}>{grade}학년</option>
-                ))}
-              </select>
-            </div>
+            {/* 담임교사: 담당 학년 (단일 선택) */}
+            {formData.type === 'homeroom' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  담당 학년
+                </label>
+                <select
+                  value={formData.grade || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, grade: e.target.value ? Number(e.target.value) : undefined }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                           bg-white dark:bg-slate-800 text-slate-800 dark:text-white
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">선택 안 함</option>
+                  {GRADES.map(grade => (
+                    <option key={grade} value={grade}>{grade}학년</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            {/* 반 번호 (담임만) */}
+            {/* 담임교사: 반 번호 */}
             {formData.type === 'homeroom' && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -288,7 +329,51 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
               </div>
             )}
 
-            {/* 담당 교과 (전담만) */}
+            {/* 전담교사: 담당 학년 (복수 선택) */}
+            {formData.type === 'specialist' && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    담당 학년 <span className="text-slate-500 text-xs">(복수 선택 가능)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={selectAllGrades}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    {formData.grades.length === GRADES.length ? '전체 해제' : '전체 선택'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {GRADES.map(grade => (
+                    <label
+                      key={grade}
+                      className={`flex items-center justify-center w-16 py-2 rounded-lg cursor-pointer
+                                border transition-colors
+                                ${formData.grades.includes(grade)
+                                  ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-500 text-indigo-700 dark:text-indigo-300'
+                                  : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-indigo-300'
+                                }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.grades.includes(grade)}
+                        onChange={() => toggleGrade(grade)}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-medium">{grade}학년</span>
+                    </label>
+                  ))}
+                </div>
+                {formData.grades.length > 0 && (
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    선택: {formData.grades.map(g => `${g}학년`).join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 전담교사: 담당 교과 */}
             {formData.type === 'specialist' && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -311,6 +396,24 @@ export default function TeacherFormModal({ isOpen, onClose, teacher, mode, onSub
                     </label>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 전담교사: 기타 교과 */}
+            {formData.type === 'specialist' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  기타 교과 <span className="text-slate-500 text-xs">(직접 입력)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.customSubject}
+                  onChange={(e) => setFormData(prev => ({ ...prev, customSubject: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                           bg-white dark:bg-slate-800 text-slate-800 dark:text-white
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="예: 안전, 창체, 컴퓨터"
+                />
               </div>
             )}
 
