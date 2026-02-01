@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
+import TeacherHoursSimulator from './pages/assignment/TeacherHoursSimulator';
 
 // Placeholder 컴포넌트 (추후 개발)
 function PlaceholderPage({ title }: { title: string }) {
@@ -45,6 +46,7 @@ function App() {
             <Route path="auto" element={<PlaceholderPage title="자동 배정" />} />
             <Route path="manual" element={<PlaceholderPage title="수동 조정" />} />
             <Route path="conflict" element={<PlaceholderPage title="충돌 검사" />} />
+            <Route path="simulator" element={<TeacherHoursSimulator />} />
           </Route>
 
           {/* 결과 */}

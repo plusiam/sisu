@@ -34,6 +34,7 @@ export const menuItems: MenuItem[] = [
       { id: 'auto', label: '자동 배정', path: '/assignment/auto' },
       { id: 'manual', label: '수동 조정', path: '/assignment/manual' },
       { id: 'conflict', label: '충돌 검사', path: '/assignment/conflict' },
+      { id: 'simulator', label: '시수 시뮬레이터', path: '/assignment/simulator' },
     ],
   },
   {
