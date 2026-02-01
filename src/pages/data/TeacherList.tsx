@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { UserPlus, Settings, RefreshCw, Edit, Trash2, Clock } from 'lucide-react';
+import { UserPlus, Settings, Edit, Trash2, Clock, Upload, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTeacherStore } from '../../stores/teacherStore';
 import { calculateStats } from '../../lib/simulatorCalculations';
 import TeacherFormModal from '../../components/teacher/TeacherFormModal';
+import GoogleSheetsSettingsModal from '../../components/teacher/GoogleSheetsSettingsModal';
+import SyncStatusIndicator from '../../components/teacher/SyncStatusIndicator';
 import type { Teacher } from '../../types/teacher';
 
 export default function TeacherList() {
   const navigate = useNavigate();
-  const { teachers, assignments, addTeacher, updateTeacher, deleteTeacher } = useTeacherStore();
+  const { teachers, assignments, addTeacher, updateTeacher, deleteTeacher, syncPush, syncPull, googleSheetsConfig } = useTeacherStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | undefined>();
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [syncing, setSyncing] = useState(false);
 
   const handleAddClick = () => {
     setEditingTeacher(undefined);
@@ -37,6 +41,46 @@ export default function TeacherList() {
       addTeacher(teacherData);
     } else if (editingTeacher) {
       updateTeacher(editingTeacher.id, teacherData);
+    }
+  };
+
+  const handleSyncPush = async () => {
+    if (!googleSheetsConfig.enabled) {
+      alert('먼저 Google Sheets를 설정해주세요');
+      setIsSettingsOpen(true);
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      await syncPush();
+      alert('동기화 완료!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '동기화 실패');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSyncPull = async () => {
+    if (!googleSheetsConfig.enabled) {
+      alert('먼저 Google Sheets를 설정해주세요');
+      setIsSettingsOpen(true);
+      return;
+    }
+
+    if (!confirm('Sheets의 데이터로 덮어쓰시겠습니까? 로컬 변경사항은 손실됩니다.')) {
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      await syncPull();
+      alert('동기화 완료!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '동기화 실패');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -75,7 +119,7 @@ export default function TeacherList() {
 
       {/* Actions */}
       <div className="glass-card p-4">
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleAddClick}
             className="flex items-center gap-2 px-4 py-2 rounded-lg
@@ -86,6 +130,7 @@ export default function TeacherList() {
             교사 추가
           </button>
           <button
+            onClick={() => setIsSettingsOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg
                      border border-slate-300 dark:border-slate-600
                      text-slate-700 dark:text-slate-300
@@ -96,15 +141,34 @@ export default function TeacherList() {
             Sheets 설정
           </button>
           <button
+            onClick={handleSyncPush}
+            disabled={syncing || !googleSheetsConfig.enabled}
             className="flex items-center gap-2 px-4 py-2 rounded-lg
                      border border-slate-300 dark:border-slate-600
                      text-slate-700 dark:text-slate-300
                      hover:bg-slate-100 dark:hover:bg-slate-700
+                     disabled:opacity-50 disabled:cursor-not-allowed
                      transition-colors"
           >
-            <RefreshCw className="w-4 h-4" />
-            동기화
+            <Upload className="w-4 h-4" />
+            업로드
           </button>
+          <button
+            onClick={handleSyncPull}
+            disabled={syncing || !googleSheetsConfig.enabled}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg
+                     border border-slate-300 dark:border-slate-600
+                     text-slate-700 dark:text-slate-300
+                     hover:bg-slate-100 dark:hover:bg-slate-700
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            다운로드
+          </button>
+          <div className="ml-auto">
+            <SyncStatusIndicator />
+          </div>
         </div>
       </div>
 
@@ -201,6 +265,12 @@ export default function TeacherList() {
         teacher={editingTeacher}
         mode={modalMode}
         onSubmit={handleSubmit}
+      />
+
+      {/* Settings Modal */}
+      <GoogleSheetsSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );

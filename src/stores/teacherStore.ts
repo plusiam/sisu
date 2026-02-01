@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Teacher, TeacherAssignment, SyncStatus, GoogleSheetsConfig } from '../types/teacher';
 import type { HoursInput } from '../types/simulator';
+import { GoogleSheetsAPI } from '../lib/googleSheetsApi';
 
 interface TeacherStore {
   // State
@@ -23,7 +24,9 @@ interface TeacherStore {
 
   // Google Sheets sync
   updateGoogleSheetsConfig: (config: Partial<GoogleSheetsConfig>) => void;
-  syncWithGoogleSheets: () => Promise<void>;
+  syncWithGoogleSheets: (direction?: 'push' | 'pull') => Promise<void>;
+  syncPush: () => Promise<void>;
+  syncPull: () => Promise<void>;
 
   // Utilities
   clearAllData: () => void;
@@ -136,9 +139,94 @@ export const useTeacherStore = create<TeacherStore>()(
         }));
       },
 
-      syncWithGoogleSheets: async () => {
-        // 구현은 Phase 2에서
-        console.log('Google Sheets sync will be implemented in Phase 2');
+      syncPush: async () => {
+        const state = get();
+        const { googleSheetsConfig, teachers, assignments } = state;
+
+        if (!googleSheetsConfig.enabled || !googleSheetsConfig.webAppUrl) {
+          throw new Error('Google Sheets가 설정되지 않았습니다');
+        }
+
+        set({
+          syncStatus: {
+            ...state.syncStatus,
+            status: 'pending',
+          },
+        });
+
+        try {
+          const api = new GoogleSheetsAPI(googleSheetsConfig.webAppUrl);
+          await api.saveData(teachers, assignments);
+
+          set({
+            syncStatus: {
+              lastSyncTime: Date.now(),
+              status: 'synced',
+              errorMessage: undefined,
+              pendingChanges: 0,
+            },
+          });
+        } catch (error) {
+          set({
+            syncStatus: {
+              ...state.syncStatus,
+              status: 'error',
+              errorMessage: error instanceof Error ? error.message : '동기화 실패',
+            },
+          });
+          throw error;
+        }
+      },
+
+      syncPull: async () => {
+        const state = get();
+        const { googleSheetsConfig } = state;
+
+        if (!googleSheetsConfig.enabled || !googleSheetsConfig.webAppUrl) {
+          throw new Error('Google Sheets가 설정되지 않았습니다');
+        }
+
+        set({
+          syncStatus: {
+            ...state.syncStatus,
+            status: 'pending',
+          },
+        });
+
+        try {
+          const api = new GoogleSheetsAPI(googleSheetsConfig.webAppUrl);
+          const data = await api.fetchData();
+          const { teachers, assignments } = GoogleSheetsAPI.parseSheetData(data);
+
+          set({
+            teachers,
+            assignments,
+            syncStatus: {
+              lastSyncTime: Date.now(),
+              status: 'synced',
+              errorMessage: undefined,
+              pendingChanges: 0,
+            },
+          });
+        } catch (error) {
+          set({
+            syncStatus: {
+              ...state.syncStatus,
+              status: 'error',
+              errorMessage: error instanceof Error ? error.message : '동기화 실패',
+            },
+          });
+          throw error;
+        }
+      },
+
+      syncWithGoogleSheets: async (direction = 'push') => {
+        const state = get();
+        if (direction === 'push') {
+          await state.syncPush();
+        } else {
+          await state.syncPull();
+        }
       },
 
       clearAllData: () => {
