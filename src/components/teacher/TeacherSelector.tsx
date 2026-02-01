@@ -1,4 +1,5 @@
 import { useTeacherStore } from '../../stores/teacherStore';
+import { getTeacherFullLabel } from '../../lib/teacherUtils';
 
 interface TeacherSelectorProps {
   value: string | null;
@@ -8,26 +9,6 @@ interface TeacherSelectorProps {
 
 export default function TeacherSelector({ value, onChange, className = '' }: TeacherSelectorProps) {
   const { teachers } = useTeacherStore();
-
-  const getTeacherLabel = (teacher: typeof teachers[0]) => {
-    const parts = [teacher.name];
-
-    if (teacher.type === 'homeroom') {
-      if (teacher.grade && teacher.classNumber) {
-        parts.push(`${teacher.grade}-${teacher.classNumber}`);
-      } else {
-        parts.push('담임');
-      }
-    } else {
-      if (teacher.subjects && teacher.subjects.length > 0) {
-        parts.push(`전담 ${teacher.subjects.join(', ')}`);
-      } else {
-        parts.push('전담');
-      }
-    }
-
-    return parts.join(' - ');
-  };
 
   return (
     <select
@@ -40,7 +21,7 @@ export default function TeacherSelector({ value, onChange, className = '' }: Tea
       <option value="">전체</option>
       {teachers.map(teacher => (
         <option key={teacher.id} value={teacher.id}>
-          {getTeacherLabel(teacher)}
+          {getTeacherFullLabel(teacher)}
         </option>
       ))}
     </select>

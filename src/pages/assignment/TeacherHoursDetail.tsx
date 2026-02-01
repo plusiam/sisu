@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, Clock, TrendingUp, Calendar, PieChart } from 'lucide-react';
 import { calculateStats, validateHours } from '../../lib/simulatorCalculations';
+import { getTeacherRoleLabel } from '../../lib/teacherUtils';
 import { useTeacherStore } from '../../stores/teacherStore';
 import type { HoursInput } from '../../types/simulator';
 
@@ -51,20 +52,6 @@ export default function TeacherHoursDetail() {
     navigate('/data/teachers');
   };
 
-  const getTeacherLabel = () => {
-    if (teacher.type === 'homeroom') {
-      if (teacher.grade && teacher.classNumber) {
-        return `담임 ${teacher.grade}-${teacher.classNumber}`;
-      }
-      return '담임';
-    } else {
-      if (teacher.subjects && teacher.subjects.length > 0) {
-        return `전담 ${teacher.subjects.join(', ')}`;
-      }
-      return '전담';
-    }
-  };
-
   const statusColor = {
     safe: 'text-green-600 dark:text-green-400',
     warning: 'text-yellow-600 dark:text-yellow-400',
@@ -87,7 +74,7 @@ export default function TeacherHoursDetail() {
           {teacher.name}
         </h1>
         <p className="text-slate-500 dark:text-slate-400">
-          {getTeacherLabel()}
+          {getTeacherRoleLabel(teacher)}
         </p>
       </div>
 
@@ -98,12 +85,32 @@ export default function TeacherHoursDetail() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { key: 'basicTeaching', label: '기본 수업', color: 'indigo' },
-            { key: 'adminWork', label: '행정 업무', color: 'blue' },
-            { key: 'training', label: '교사 연수', color: 'purple' },
-            { key: 'consulting', label: '교육 컨설팅', color: 'pink' },
-            { key: 'other', label: '기타 업무', color: 'slate' },
-          ].map(({ key, label, color }) => (
+            {
+              key: 'basicTeaching',
+              label: '기본 수업',
+              inputClass: 'border-indigo-200 dark:border-indigo-800 focus:ring-indigo-500'
+            },
+            {
+              key: 'adminWork',
+              label: '행정 업무',
+              inputClass: 'border-blue-200 dark:border-blue-800 focus:ring-blue-500'
+            },
+            {
+              key: 'training',
+              label: '교사 연수',
+              inputClass: 'border-purple-200 dark:border-purple-800 focus:ring-purple-500'
+            },
+            {
+              key: 'consulting',
+              label: '교육 컨설팅',
+              inputClass: 'border-pink-200 dark:border-pink-800 focus:ring-pink-500'
+            },
+            {
+              key: 'other',
+              label: '기타 업무',
+              inputClass: 'border-slate-200 dark:border-slate-800 focus:ring-slate-500'
+            },
+          ].map(({ key, label, inputClass }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 {label}
@@ -114,10 +121,9 @@ export default function TeacherHoursDetail() {
                 max="40"
                 value={input[key as keyof HoursInput]}
                 onChange={(e) => handleInputChange(key as keyof HoursInput, e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border-2 border-${color}-200
-                          dark:border-${color}-800 bg-white dark:bg-slate-800
+                className={`w-full px-4 py-3 rounded-lg border-2 bg-white dark:bg-slate-800
                           text-slate-800 dark:text-white font-medium text-lg
-                          focus:outline-none focus:ring-2 focus:ring-${color}-500 transition-all`}
+                          focus:outline-none focus:ring-2 transition-all ${inputClass}`}
               />
             </div>
           ))}

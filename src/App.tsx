@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
+import ToastContainer from './components/ui/Toast';
 import Home from './pages/Home';
 import TeacherHoursSimulator from './pages/assignment/TeacherHoursSimulator';
 import TeacherHoursDetail from './pages/assignment/TeacherHoursDetail';
@@ -22,6 +23,7 @@ function PlaceholderPage({ title }: { title: string }) {
 function App() {
   return (
     <BrowserRouter>
+      <ToastContainer />
       <Routes>
         <Route path="/" element={<Layout />}>
           {/* 홈 */}

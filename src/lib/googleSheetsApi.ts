@@ -26,11 +26,66 @@ interface ApiResponse<T> {
   timestamp: string;
 }
 
+// 에러 타입 정의
+export class ApiError extends Error {
+  code: 'NETWORK' | 'TIMEOUT' | 'SERVER' | 'VALIDATION' | 'UNKNOWN';
+  originalError?: Error;
+
+  constructor(
+    message: string,
+    code: 'NETWORK' | 'TIMEOUT' | 'SERVER' | 'VALIDATION' | 'UNKNOWN',
+    originalError?: Error
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.originalError = originalError;
+  }
+}
+
+// 타임아웃이 있는 fetch
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeout = 30000 // 기본 30초
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('요청 시간이 초과되었습니다', 'TIMEOUT');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// 응답 데이터 검증
+function validateResponseData(data: unknown): data is SyncTeacherData[] {
+  if (!Array.isArray(data)) return false;
+  return data.every(item =>
+    typeof item === 'object' &&
+    item !== null &&
+    typeof item.id === 'string' &&
+    typeof item.name === 'string'
+  );
+}
+
 export class GoogleSheetsAPI {
   private webAppUrl: string;
+  private timeout: number;
 
-  constructor(webAppUrl: string) {
+  constructor(webAppUrl: string, timeout = 30000) {
     this.webAppUrl = webAppUrl;
+    this.timeout = timeout;
   }
 
   /**
@@ -38,29 +93,60 @@ export class GoogleSheetsAPI {
    */
   async fetchData(): Promise<SyncTeacherData[]> {
     try {
-      const response = await fetch(this.webAppUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithTimeout(
+        this.webAppUrl,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         },
-      });
+        this.timeout
+      );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (response.status === 401 || response.status === 403) {
+          throw new ApiError('접근 권한이 없습니다. URL을 확인해주세요.', 'SERVER');
+        }
+        if (response.status >= 500) {
+          throw new ApiError('서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.', 'SERVER');
+        }
+        throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, 'SERVER');
       }
 
       const result: ApiResponse<SyncTeacherData[]> = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || 'Unknown error from server');
+        throw new ApiError(result.error || '서버 응답 오류', 'SERVER');
+      }
+
+      // 응답 데이터 검증
+      if (result.data && !validateResponseData(result.data)) {
+        throw new ApiError('서버 응답 형식이 올바르지 않습니다', 'VALIDATION');
       }
 
       return result.data || [];
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`데이터 가져오기 실패: ${error.message}`);
+      // 이미 ApiError인 경우 그대로 전달
+      if (error instanceof ApiError) {
+        throw error;
       }
-      throw new Error('데이터 가져오기 실패: 알 수 없는 오류');
+
+      // 네트워크 오류
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiError(
+          '네트워크 연결을 확인해주세요',
+          'NETWORK',
+          error
+        );
+      }
+
+      // 기타 오류
+      throw new ApiError(
+        error instanceof Error ? error.message : '알 수 없는 오류',
+        'UNKNOWN',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -102,28 +188,47 @@ export class GoogleSheetsAPI {
         };
       });
 
-      const response = await fetch(this.webAppUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetchWithTimeout(
+        this.webAppUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ teachers: syncData }),
         },
-        body: JSON.stringify({ teachers: syncData }),
-      });
+        this.timeout
+      );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (response.status === 401 || response.status === 403) {
+          throw new ApiError('접근 권한이 없습니다. URL을 확인해주세요.', 'SERVER');
+        }
+        if (response.status >= 500) {
+          throw new ApiError('서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.', 'SERVER');
+        }
+        throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, 'SERVER');
       }
 
       const result: ApiResponse<{ count: number }> = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || 'Unknown error from server');
+        throw new ApiError(result.error || '서버 응답 오류', 'SERVER');
       }
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`데이터 저장 실패: ${error.message}`);
+      if (error instanceof ApiError) {
+        throw error;
       }
-      throw new Error('데이터 저장 실패: 알 수 없는 오류');
+
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiError('네트워크 연결을 확인해주세요', 'NETWORK', error);
+      }
+
+      throw new ApiError(
+        error instanceof Error ? error.message : '알 수 없는 오류',
+        'UNKNOWN',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
