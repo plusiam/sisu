@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Calendar, BarChart3, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { calculateStats, validateHours } from '../../lib/simulatorCalculations';
 import type { HoursInput } from '../../types/simulator';
 import { cn } from '../../lib/utils';
+import { useTeacherStore } from '../../stores/teacherStore';
+import TeacherSelector from '../../components/teacher/TeacherSelector';
 
 const DEFAULT_INPUT: HoursInput = {
   basicTeaching: 12,
@@ -14,7 +16,22 @@ const DEFAULT_INPUT: HoursInput = {
 };
 
 export default function TeacherHoursSimulator() {
+  const { selectedTeacherId, selectTeacher, getAssignment, updateAssignment } = useTeacherStore();
   const [input, setInput] = useState<HoursInput>(DEFAULT_INPUT);
+
+  // 선택된 교사의 배정 데이터 로드
+  useEffect(() => {
+    if (selectedTeacherId) {
+      const assignment = getAssignment(selectedTeacherId);
+      if (assignment) {
+        setInput(assignment.hours);
+      } else {
+        setInput(DEFAULT_INPUT);
+      }
+    } else {
+      setInput(DEFAULT_INPUT);
+    }
+  }, [selectedTeacherId, getAssignment]);
 
   // useMemo로 계산 결과 최적화
   const stats = useMemo(() => calculateStats(input), [input]);
@@ -22,7 +39,14 @@ export default function TeacherHoursSimulator() {
   // 입력 핸들러
   function handleInputChange(field: keyof HoursInput, value: string) {
     const numValue = validateHours(Number(value) || 0);
-    setInput((prev) => ({ ...prev, [field]: numValue }));
+    setInput((prev) => {
+      const newInput = { ...prev, [field]: numValue };
+      // 교사가 선택된 경우 자동 저장
+      if (selectedTeacherId) {
+        updateAssignment(selectedTeacherId, newInput);
+      }
+      return newInput;
+    });
   }
 
   // 초기화 핸들러
@@ -47,6 +71,23 @@ export default function TeacherHoursSimulator() {
         <p className="text-slate-500 dark:text-slate-400">
           수석교사 주간 시수를 계산하고 법정 기준과 비교하세요
         </p>
+      </div>
+
+      {/* 교사 선택 */}
+      <div className="glass-card p-4">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          교사 선택
+        </label>
+        <TeacherSelector
+          value={selectedTeacherId}
+          onChange={(id) => selectTeacher(id)}
+          className="w-full"
+        />
+        {selectedTeacherId && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+            💡 입력한 시수는 자동으로 저장됩니다
+          </p>
+        )}
       </div>
 
       {/* 입력 폼 */}
