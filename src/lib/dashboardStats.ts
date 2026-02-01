@@ -1,5 +1,5 @@
 import type { Teacher, TeacherAssignment } from '../types/teacher';
-import type { StandardHours } from '../types/school';
+import type { SheetSettings } from '../types/sheets';
 import { calculateStats } from './simulatorCalculations';
 
 export interface TeacherStatus {
@@ -39,13 +39,30 @@ export interface DashboardStats {
   teacherStatuses: TeacherStatus[];
 }
 
+// 기준 시수를 가져오는 헬퍼 (수석교사 감면 적용)
+function getStandardHours(
+  settings: SheetSettings,
+  teacherType: 'homeroom' | 'specialist',
+  isMasterTeacher: boolean = false
+): number {
+  const baseHours = teacherType === 'homeroom'
+    ? (settings.담임기준시수 || settings.기본시수)
+    : (settings.전담기준시수 || settings.기본시수);
+
+  if (isMasterTeacher && settings.수석감면율 > 0) {
+    return Math.round(baseHours * (1 - settings.수석감면율 / 100));
+  }
+
+  return baseHours;
+}
+
 /**
  * 대시보드 통계 계산
  */
 export function calculateDashboardStats(
   teachers: Teacher[],
   assignments: TeacherAssignment[],
-  standardHours: StandardHours
+  settings: SheetSettings
 ): DashboardStats {
   const teacherStatuses: TeacherStatus[] = [];
 
@@ -61,12 +78,16 @@ export function calculateDashboardStats(
   const homeroomTeachers = teachers.filter(t => t.type === 'homeroom');
   const specialistTeachers = teachers.filter(t => t.type === 'specialist');
 
+  // 시수 편차 허용값
+  const tolerance = settings.시수편차허용 || 0;
+
   // 각 교사별 계산
   teachers.forEach(teacher => {
     const assignment = assignments.find(a => a.teacherId === teacher.id);
-    const standard = teacher.type === 'homeroom'
-      ? standardHours.homeroom
-      : standardHours.specialist;
+
+    // 수석교사 여부 판단 (이름에 '수석' 포함 여부로 간단히 판단)
+    const isMasterTeacher = teacher.name.includes('수석');
+    const standard = getStandardHours(settings, teacher.type, isMasterTeacher);
 
     let totalHours = 0;
 
@@ -79,11 +100,12 @@ export function calculateDashboardStats(
     const difference = totalHours - standard;
     let status: 'over' | 'normal' | 'under' = 'normal';
 
-    if (difference > 0) {
+    // 편차 허용 범위 적용
+    if (difference > tolerance) {
       status = 'over';
       overHoursCount++;
       totalOverHours += difference;
-    } else if (difference < 0) {
+    } else if (difference < -tolerance) {
       status = 'under';
       underHoursCount++;
       totalUnderHours += Math.abs(difference);

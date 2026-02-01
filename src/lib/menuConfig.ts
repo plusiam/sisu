@@ -22,9 +22,11 @@ export const menuItems: MenuItem[] = [
     id: 'timetable',
     label: '시간표',
     children: [
+      { id: 'my-timetable', label: '내 시간표', path: '/timetable/my' },
+      { id: 'all-timetables', label: '전체 시간표', path: '/timetable/all' },
+      { id: 'divider-tt', label: '---', path: '' },
+      { id: 'edit-timetable', label: '시간표 편집', path: '/timetable/edit' },
       { id: 'class-timetable', label: '학급 시간표', path: '/timetable/class' },
-      { id: 'jeondam-slots', label: '전담교시 설정', path: '/timetable/slots' },
-      { id: 'template', label: '시간표 템플릿', path: '/timetable/template' },
     ],
   },
   {

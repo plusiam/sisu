@@ -5,6 +5,10 @@ import Home from './pages/Home';
 import TeacherHoursSimulator from './pages/assignment/TeacherHoursSimulator';
 import TeacherHoursDetail from './pages/assignment/TeacherHoursDetail';
 import TeacherList from './pages/data/TeacherList';
+import MyTimetable from './pages/timetable/MyTimetable';
+import AllTimetables from './pages/timetable/AllTimetables';
+import TimetableEditor from './pages/timetable/TimetableEditor';
+import AutoAssignment from './pages/assignment/AutoAssignment';
 
 // Placeholder 컴포넌트 (추후 개발)
 function PlaceholderPage({ title }: { title: string }) {
@@ -40,14 +44,15 @@ function App() {
 
           {/* 시간표 */}
           <Route path="timetable">
+            <Route path="my" element={<MyTimetable />} />
+            <Route path="all" element={<AllTimetables />} />
+            <Route path="edit" element={<TimetableEditor />} />
             <Route path="class" element={<PlaceholderPage title="학급 시간표" />} />
-            <Route path="slots" element={<PlaceholderPage title="전담교시 설정" />} />
-            <Route path="template" element={<PlaceholderPage title="시간표 템플릿" />} />
           </Route>
 
           {/* 배정 */}
           <Route path="assignment">
-            <Route path="auto" element={<PlaceholderPage title="자동 배정" />} />
+            <Route path="auto" element={<AutoAssignment />} />
             <Route path="manual" element={<PlaceholderPage title="수동 조정" />} />
             <Route path="conflict" element={<PlaceholderPage title="충돌 검사" />} />
             <Route path="simulator" element={<TeacherHoursSimulator />} />

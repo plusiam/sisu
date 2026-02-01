@@ -205,10 +205,10 @@ function EmptyState() {
 
 export default function Home() {
   const { teachers, assignments } = useTeacherStore();
-  const { settings } = useSchoolStore();
+  const { settings, schoolInfo } = useSchoolStore();
 
   // 대시보드 통계 계산
-  const stats = calculateDashboardStats(teachers, assignments, settings.standardHours);
+  const stats = calculateDashboardStats(teachers, assignments, settings);
 
   // 교사가 없는 경우 빈 상태 표시
   if (teachers.length === 0) {
@@ -239,17 +239,17 @@ export default function Home() {
             대시보드
           </h1>
           <p className="text-slate-500 dark:text-slate-400">
-            {settings.info.name || '학교'} {settings.info.year}년 {settings.info.semester}학기 시수 현황
+            {schoolInfo.schoolName || '학교'} {schoolInfo.year}학년도 시수 현황
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <span>기준시수:</span>
           <span className="font-medium text-slate-700 dark:text-slate-300">
-            담임 {settings.standardHours.homeroom}시간
+            담임 {settings.담임기준시수}시간
           </span>
           <span>/</span>
           <span className="font-medium text-slate-700 dark:text-slate-300">
-            전담 {settings.standardHours.specialist}시간
+            전담 {settings.전담기준시수}시간
           </span>
         </div>
       </div>
